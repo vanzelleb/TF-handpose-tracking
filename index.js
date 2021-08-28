@@ -22,12 +22,9 @@ import "@tensorflow/tfjs-backend-webgl";
 let model,
   videoWidth,
   videoHeight,
-  rafID,
   ctx,
   canvas,
-  ANCHOR_POINTS,
-  scatterGLHasInitialized = false,
-  scatterGL,
+  audio,
   fingerLookupIndices = {
     thumb: [0, 1, 2, 3, 4],
     indexFinger: [0, 5, 6, 7, 8],
@@ -38,46 +35,17 @@ let model,
 
 const VIDEO_WIDTH = 640;
 const VIDEO_HEIGHT = 500;
+const THUMB_TIP = 4;
+const INDEX_FINGER_TIP = 8;
 const mobile = isMobile();
-// Don't render the point cloud on mobile in order to maximize performance and
-// to avoid crowding limited screen space.
-//const renderPointcloud = true;
 
 const state = {
   backend: "webgl"
 };
 
-const stats = new Stats();
+/*const stats = new Stats();
 stats.showPanel(0);
-document.body.appendChild(stats.dom);
-
-/*
-if (renderPointcloud) {
-  state.renderPointcloud = true;
-}
-
-/*function setupDatGui() {
-  const gui = new dat.GUI();
-  gui.add(state, "backend", ["webgl", "wasm"]).onChange(async (backend) => {
-    window.cancelAnimationFrame(rafID);
-    await tf.setBackend(backend);
-    landmarksRealTime(video);
-  });
-
-  if (renderPointcloud) {
-    gui.add(state, "renderPointcloud").onChange((render) => {
-      document.querySelector("#scatter-gl-container").style.display = render
-        ? "inline-block"
-        : "none";
-    });
-  }
-}*/
-
-/*function drawPoint(y, x, r) {
-  ctx.beginPath();
-  ctx.arc(x, y, r, 0, 2 * Math.PI);
-  ctx.fill();
-}*/
+document.body.appendChild(stats.dom);*/
 
 function isMobile() {
   const isAndroid = /Android/i.test(navigator.userAgent);
@@ -85,27 +53,42 @@ function isMobile() {
   return isAndroid || isiOS;
 }
 
-function drawKeypoints(keypoints) {
-  const keypointsArray = keypoints;
+function calculateDistance(keypoints) {
+  const x1 = keypoints[THUMB_TIP][0];
+  const y1 = keypoints[THUMB_TIP][1];
+  const x2 = keypoints[INDEX_FINGER_TIP][0];
+  const y2 = keypoints[INDEX_FINGER_TIP][1];
+  const dist = Math.sqrt(Math.pow(x2 - x1, 2) + Math.pow(y2 - y1, 2));
+  //console.log(dist);
 
-  for (let i = 0; i < keypointsArray.length; i++) {
-    const x = keypointsArray[i][0];
-    const y = keypointsArray[i][1];
-    //drawPoint(x - 2, y - 2, 3);
+  if (dist < 60 && audio.paused) {
+    audio.currentTime = 0;
+    audio.play();
+  }
+  if (dist > 60) audio.pause();
+}
+
+function drawKeypoints(keypoints) {
+  for (let i = 0; i < keypoints.length; i++) {
+    const x = keypoints[i][0];
+    const y = keypoints[i][1];
     ctx.beginPath();
+    //if (i === THUMB_TIP || i === INDEX_FINGER_TIP)
+    //ctx.arc(x, y, 10, 0, 2 * Math.PI);
+    //else
     ctx.arc(x, y, 3, 0, 2 * Math.PI);
     ctx.fill();
   }
 
-  /*const fingers = Object.keys(fingerLookupIndices);
+  const fingers = Object.keys(fingerLookupIndices);
   for (let i = 0; i < fingers.length; i++) {
     const finger = fingers[i];
     const points = fingerLookupIndices[finger].map((idx) => keypoints[idx]);
     drawPath(points, false);
-  }*/
+  }
 }
 
-/*function drawPath(points, closePath) {
+function drawPath(points, closePath) {
   const region = new Path2D();
   region.moveTo(points[0][0], points[0][1]);
   for (let i = 1; i < points.length; i++) {
@@ -117,7 +100,7 @@ function drawKeypoints(keypoints) {
     region.closePath();
   }
   ctx.stroke(region);
-}*/
+}
 
 async function setupCamera() {
   if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
@@ -148,56 +131,17 @@ async function setupCamera() {
 
 const landmarksRealTime = async (video) => {
   async function frameLandmarks() {
-    stats.begin();
-    /*ctx.drawImage(
-      video,
-      0,
-      0,
-      videoWidth,
-      videoHeight,
-      0,
-      0,
-      canvas.width,
-      canvas.height
-    );*/
+    //stats.begin();
     ctx.clearRect(0, 0, canvas.width, canvas.height);
     const predictions = await model.estimateHands(video);
     if (predictions.length > 0) {
-      const result = predictions[0].landmarks;
-      drawKeypoints(result, predictions[0].annotations);
-
-      /*if (renderPointcloud === true && scatterGL != null) {
-        const pointsData = result.map((point) => {
-          return [-point[0], -point[1], -point[2]];
-        });
-
-        const dataset = new ScatterGL.Dataset([
-          ...pointsData,
-          ...ANCHOR_POINTS
-        ]);
-
-        if (!scatterGLHasInitialized) {
-          scatterGL.render(dataset);
-
-          const fingers = Object.keys(fingerLookupIndices);
-
-          scatterGL.setSequences(
-            fingers.map((finger) => ({ indices: fingerLookupIndices[finger] }))
-          );
-          scatterGL.setPointColorer((index) => {
-            if (index < pointsData.length) {
-              return "steelblue";
-            }
-            return "white"; // Hide.
-          });
-        } else {
-          scatterGL.updateDataset(dataset);
-        }
-        scatterGLHasInitialized = true;
-    }*/
+      const keypoints = predictions[0].landmarks;
+      //console.log(result);
+      drawKeypoints(keypoints);
+      calculateDistance(keypoints);
     }
-    stats.end();
-    rafID = requestAnimationFrame(frameLandmarks);
+    //stats.end();
+    requestAnimationFrame(frameLandmarks);
   }
   frameLandmarks();
 };
@@ -207,6 +151,12 @@ navigator.getUserMedia =
   navigator.webkitGetUserMedia ||
   navigator.mozGetUserMedia;
 
+if ("xr" in navigator) {
+  console.log("WebXR can be used");
+} else {
+  console.log("WebXR isn't available");
+}
+
 async function main() {
   await tf.setBackend(state.backend);
   model = await handpose.load();
@@ -214,6 +164,10 @@ async function main() {
 
   try {
     video = await setupCamera();
+    let loaded = document.getElementById("loaded");
+    let loading = document.getElementById("loading");
+    loaded.style.display = "block";
+    loading.style.display = "none";
   } catch (e) {
     let info = document.getElementById("info");
     info.textContent = e.message;
@@ -221,16 +175,16 @@ async function main() {
     throw e;
   }
 
-  //setupDatGui();
-
   videoWidth = video.videoWidth;
   videoHeight = video.videoHeight;
 
   canvas = document.getElementById("output");
   canvas.width = videoWidth;
   canvas.height = videoHeight;
-  //video.width = videoWidth;
-  //video.height = videoHeight;
+  video.width = videoWidth;
+  video.height = videoHeight;
+
+  audio = document.getElementById("audio");
 
   ctx = canvas.getContext("2d");
   ctx.clearRect(0, 0, videoWidth, videoHeight);
@@ -239,26 +193,6 @@ async function main() {
 
   ctx.translate(canvas.width, 0);
   ctx.scale(-1, 1);
-
-  // These anchor points allow the hand pointcloud to resize according to its
-  // position in the input.
-  /*ANCHOR_POINTS = [
-    [0, 0, 0],
-    [0, -VIDEO_HEIGHT, 0],
-    [-VIDEO_WIDTH, 0, 0],
-    [-VIDEO_WIDTH, -VIDEO_HEIGHT, 0]
-  ];*/
-
-  /*if (renderPointcloud) {
-    document.querySelector(
-      "#scatter-gl-container"
-    ).style = `width: ${VIDEO_WIDTH}px; height: ${VIDEO_HEIGHT}px;`;
-
-    scatterGL = new ScatterGL(document.querySelector("#scatter-gl-container"), {
-      rotateOnStart: false,
-      selectEnabled: false
-    });
-}*/
 
   landmarksRealTime(video);
 }

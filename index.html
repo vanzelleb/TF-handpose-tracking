@@ -15,37 +15,47 @@ limitations under the License.
   name="viewport"
   content="width=device-width,initial-scale=1,maximum-scale=1.0, user-scalable=no"
 />
-<!-- Load three.js -->
-<!-- <script src="https://cdn.jsdelivr.net/npm/three@0.106.2/build/three.min.js"></script>-->
-<!-- Load scatter-gl.js -->
-<!-- TODO(annxingyuan): Submit a PR to scatter-gl that allows polylines to update in the render loop. -->
-<!-- <script src="https://storage.googleapis.com/learnjs-data/handtrack_staging/scatter-gl.js"></script>-->
-<!-- <script src="https://cdn.jsdelivr.net/npm/scatter-gl@0.0.1/lib/scatter-gl.min.js"></script> -->
 <style>
   #output {
-    display: block;
-    margin-left: auto;
-    margin-right: auto;
-    border: 3px solid black;
+    position: fixed;
+    border: 0px;
+  }
+
+  #video {
+    -webkit-transform: scaleX(-1);
+    transform: scaleX(-1);
+    position: fixed;
+    z-index: -1;
+  }
+
+  h1,
+  h2,
+  div {
+    text-align: center;
+  }
+
+  #loading {
+    color: blue;
   }
 </style>
 <script src="https://cdn.jsdelivr.net/npm/stats.js@0.17.0/build/stats.min.js"></script>
 
 <body>
   <div id="info" style="display: none;"></div>
-  <canvas id="output" style=""></canvas>
-  <video
-    autoplay
-    id="video"
-    style="
-      -webkit-transform: scaleX(-1);
-      transform: scaleX(-1);
-      width: 150;
-      height: auto;
-      position: fixed;
-      top: 10;
-      right: 10;
-    "
-  ></video>
+  <h1>The Om-Machine</h1>
+
+  <h2 id="loaded" style="display: none;">
+    Make the "Om" hand gesture and hear what happens
+  </h2>
+  <video autoplay poster="om.jpg" id="video"></video>
+  <canvas id="output"></canvas>
+  <div id="loading">
+    <h2>Wait for the video feed to load...</h2>
+    <div>Photo by Elena Rabkina on Unsplash</div>
+  </div>
+  <audio id="audio">
+    <source src="ohm.m4a" type="audio/mp4" />
+    Your browser does not support the audio element.
+  </audio>
   <script src="./index.js"></script>
 </body>
